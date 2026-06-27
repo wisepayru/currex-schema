@@ -1,0 +1,16 @@
+# Test-only dependencies. Pinned per wisepayru/ym-api#108 conventions.
+#
+# Install on top of the package's runtime deps:
+#   pip install -e . -r requirements-test.txt
+#
+# The runtime dep (SQLAlchemy) comes from the package itself via `pip install -e .`
+# and is left unpinned in pyproject so consuming services control their own
+# version. These models are pure declarations — the tests need no database; the
+# DDL is compiled for the postgres dialect in-memory.
+
+pytest==9.0.3
+pytest-cov==7.1.0
+ruff==0.15.17
+
+# --- transitive deps, pinned for reproducibility ---
+coverage==7.14.1

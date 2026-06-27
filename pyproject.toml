@@ -1,0 +1,27 @@
+[build-system]
+# setuptools>=77 for the SPDX-string license + license-files support.
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "currex-schema"
+description = "Shared SQLAlchemy models for the wisepay currency-exchange rates DB"
+requires-python = ">=3.14"
+license = "MPL-2.0"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+dependencies = [
+    "SQLAlchemy",
+]
+
+# Test dependencies live in requirements-test.txt (pinned, per wisepayru/ym-api#108):
+#   pip install -e . -r requirements-test.txt
+
+[project.urls]
+Repository = "https://github.com/wisepayru/currex-schema"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["currex_schema*"]
+
+[tool.setuptools_scm]
