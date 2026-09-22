@@ -8,6 +8,7 @@ of this package and a pin bump in the consumers, which their existing pin guards
 name and not by schema alone
 """
 import os
+from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import URL, create_engine, pool
@@ -18,6 +19,10 @@ SCHEMA = 'public'
 TABLES = frozenset({'currency_rates'})
 
 config = context.config
+# without this the logging section of alembic.ini is never applied, python's default WARNING root
+# filters alembic's own output, and a migration that ran says nothing about which revisions it applied
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 
 
