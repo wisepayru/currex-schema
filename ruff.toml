@@ -1,5 +1,8 @@
 # Ruff configuration. Default rule set (Pyflakes + pycodestyle E4/E7/E9).
 #
-# This package is entirely hand-written (no generated code), so nothing is
-# excluded from linting.
+# The model and the alembic environment are hand-written and linted. The revision
+# files under currex_schema/alembic/versions are written by `alembic revision
+# --autogenerate` from a template, and carry imports a revision may or may not
+# use, so they are excluded rather than edited to please the linter.
 target-version = "py314"
+exclude = ["currex_schema/alembic/versions"]

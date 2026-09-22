@@ -25,13 +25,15 @@ jobs:
 
   build:
     needs: test
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
     env:
-      PYTHONNOUSERSITE: "1"
       PIP_NO_CACHE_DIR: "1"
-      VIRTUAL_ENV: ${{ github.workspace }}/.venv
-      PATH: ${{ github.workspace }}/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
       GH_TOKEN: ${{ github.token }}
+      # The release tag reaches every step through the environment rather than
+      # being expanded into a shell line: it is text a person chooses, and a tag
+      # named `$(id)` would otherwise run.
+      TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
@@ -39,18 +41,18 @@ jobs:
           # release tag (otherwise it builds a 0.0.0/dev version).
           fetch-depth: 0
 
-      - name: Create virtualenv (Python 3.14)
-        run: /opt/homebrew/bin/python3.14 -m venv --clear --copies .venv
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.14"
 
       - name: Install build backend
-        run: .venv/bin/pip install --isolated "build==1.5.0"
+        run: pip install "build==1.5.0"
 
       - name: Build wheel + sdist
-        run: .venv/bin/python -m build
+        run: python -m build
 
       - name: Verify built version matches the release tag
         run: |
-          TAG="${{ github.event.release.tag_name }}"
           VERSION="${TAG#v}"   # tolerate an optional leading v
           echo "release tag: $TAG  ->  expected version: $VERSION"
           ls -1 dist/
@@ -69,13 +71,11 @@ jobs:
         # exists" even though the asset is attached. The verify step below is the
         # real gate, so a false failure here no longer reds the job.
         run: |
-          TAG="${{ github.event.release.tag_name }}"
           gh release upload "$TAG" dist/* --clobber \
             || echo "::warning::gh release upload exited non-zero; verifying attachments next"
 
       - name: Verify artifacts are attached
         run: |
-          TAG="${{ github.event.release.tag_name }}"
           missing=0
           for path in dist/*; do
             name="$(basename "$path")"
@@ -92,4 +92,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf .venv dist build *.egg-info
+        run: rm -rf dist build ./*.egg-info

@@ -19,38 +19,88 @@ permissions:
 
 jobs:
   test:
-    # push always runs. PRs run only when the author is an org
-    # member/maintainer -- the runner is self-hosted on the prod box, so we do
-    # not auto-run unreviewed (or fork) PR code. workflow_call passes through:
-    # the calling release workflow only fires on trusted events.
+    # Push always runs. PRs run only when the author is an org
+    # member/maintainer, so a fork's first push does not run unreviewed code
+    # against this repository's workflow. workflow_call passes through: the
+    # calling release workflow only fires on trusted events.
     if: >-
       github.event_name != 'pull_request' ||
       contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
     env:
-      # Isolated venv per run, never touching the runner's global site-packages.
-      PYTHONNOUSERSITE: "1"
       PIP_NO_CACHE_DIR: "1"
-      VIRTUAL_ENV: ${{ github.workspace }}/.venv
-      PATH: ${{ github.workspace }}/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
         with:
           # Full history + tags so setuptools-scm can derive the version.
           fetch-depth: 0
 
-      - name: Create virtualenv (Python 3.14)
-        run: /opt/homebrew/bin/python3.14 -m venv --clear --copies .venv
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.14"
 
       - name: Install package and test dependencies
-        run: .venv/bin/pip install --isolated -e . -r requirements-test.txt
+        run: pip install -e . -r requirements-test.txt
 
       - name: Lint (ruff)
-        run: .venv/bin/ruff check .
+        run: ruff check .
 
       - name: Run tests
-        run: .venv/bin/pytest --cov-fail-under=100
+        run: pytest --cov-fail-under=100
 
-      - name: Cleanup virtualenv
-        if: always()
-        run: rm -rf .venv
+  migration:
+    # The history in currex_schema/alembic is what every consumer of this
+    # package applies, so it is proven here against the Postgres version the
+    # cluster runs: the revisions build the schema from empty, and `alembic
+    # check` then finds no difference between the model and what they built. A
+    # model change without a revision fails this job, which is the whole point.
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    env:
+      PIP_NO_CACHE_DIR: "1"
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: postgres
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.14"
+
+      - name: Install the package and alembic
+        run: pip install -e . alembic==1.20.0 psycopg2-binary==2.9.13
+
+      - name: Create the owning role
+        # Every object the history creates belongs to wisepay_owner, because that
+        # is the role the tenant's grants declare default privileges for. A fresh
+        # database has no such role and alembic's SET ROLE would fail on the
+        # first statement.
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE ROLE wisepay_owner" -c "GRANT wisepay_owner TO postgres"
+
+      - name: Build the schema from the history
+        run: alembic -c alembic.ini upgrade head
+
+      - name: The model and the schema agree
+        run: alembic -c alembic.ini check

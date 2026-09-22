@@ -24,4 +24,14 @@ Repository = "https://github.com/wisepayru/currex-schema"
 where = ["."]
 include = ["currex_schema*"]
 
+# the alembic history ships with the package: consumers point script_location at `currex_schema:alembic`, so the
+# env, the template and every revision have to be installed beside the model rather than left in the repository
+[tool.setuptools.package-data]
+currex_schema = ["alembic/*.py", "alembic/*.mako", "alembic/versions/*.py"]
+
+[tool.coverage.run]
+# the alembic environment and its revisions are exercised against a real database by the test workflow's
+# migration job, not by the unit tests, and the package's coverage gate is about the model
+omit = ["currex_schema/alembic/*"]
+
 [tool.setuptools_scm]
