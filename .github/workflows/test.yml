@@ -91,13 +91,19 @@ jobs:
       - name: Install the package and alembic
         run: pip install -e . alembic==1.20.0 psycopg2-binary==2.9.13
 
-      - name: Create the owning role
+      - name: Prepare the database as the cluster has it
         # Every object the history creates belongs to wisepay_owner, because that
         # is the role the tenant's grants declare default privileges for. A fresh
-        # database has no such role and alembic's SET ROLE would fail on the
-        # first statement.
+        # database has no such role, and alembic's SET ROLE would fail on the
+        # first statement. The grant on public is needed too: since PostgreSQL 15
+        # that schema belongs to pg_database_owner and a member role holds nothing
+        # on it, so CREATE TABLE public.alembic_version is refused without it. The
+        # tenant's grants.sql makes the same grant for the same reason.
         run: |
-          psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE ROLE wisepay_owner" -c "GRANT wisepay_owner TO postgres"
+          psql "postgresql://postgres:postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE wisepay_owner NOLOGIN" \
+            -c "GRANT wisepay_owner TO postgres" \
+            -c "GRANT CREATE ON SCHEMA public TO wisepay_owner"
 
       - name: Build the schema from the history
         run: alembic -c alembic.ini upgrade head
