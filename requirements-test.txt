@@ -8,9 +8,9 @@
 # version. These models are pure declarations — the tests need no database; the
 # DDL is compiled for the postgres dialect in-memory.
 
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==7.1.0
-ruff==0.15.17
+ruff==0.15.20
 
 # --- transitive deps, pinned for reproducibility ---
-coverage==7.14.1
+coverage==7.14.3
