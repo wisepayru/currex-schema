@@ -43,9 +43,10 @@ def include_object(object_, name, type_, reflected, compare_to):
 def database_url() -> URL:
     # URL.create escapes each component itself. building the dsn by interpolation instead lets a reserved
     # character in the password reshape the url, after which the driver resolves a hostname made of password
-    # fragments and prints it in the error
+    # fragments and prints it in the error. the driver is named because a bare postgresql means psycopg 3 from
+    # SQLAlchemy 2.1, and every consumer installs psycopg2
     return URL.create(
-        drivername='postgresql',
+        drivername='postgresql+psycopg2',
         username=os.environ.get('POSTGRES_USERNAME'),
         password=os.environ.get('POSTGRES_PASSWORD'),
         host=os.environ.get('POSTGRES_HOST'),

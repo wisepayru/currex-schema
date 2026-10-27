@@ -10,7 +10,7 @@
 
 pytest==9.1.1
 pytest-cov==7.1.0
-ruff==0.15.20
+ruff==0.17.3
 
 # --- transitive deps, pinned for reproducibility ---
-coverage==7.14.3
+coverage==7.17.0
